@@ -1,5 +1,7 @@
 # DiskCache: Disk Backed Cache
 
+DiskCache is a disk and file-backed caching library, used in the same way as Redis.
+
 ### Installation
 
 ```sh
@@ -35,5 +37,17 @@ func main() {
 
 	// Set an item that expires in 60 seconds.
 	cache.Expire(cacheKey, 60)
+
+	// add a list item
+	cache.LPush(cacheKey, "1")
+	cache.LPush(cacheKey, "2")
+
+	// Removes and returns the first element of the list
+	cache.LPop(cacheKey)
+
+	// Removes and returns the last element of the list
+	cache.RPop(cacheKey)
+
+
 }
 ```

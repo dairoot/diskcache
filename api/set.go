@@ -13,7 +13,7 @@ func (dc *DiskCache) Set(key string, value string, ttl int64) error {
 	dc.mutex.Lock()
 	defer dc.mutex.Unlock()
 	valueByte := []byte(value)
-	valueDirPath, valueFileName, valueHash := dc.getValuePath(valueByte)
+	valueDirPath, valueFileName, valueHash := dc.getValuePath(key, valueByte)
 	valueFilePath := filepath.Join(valueDirPath, valueFileName)
 
 	if _, err := os.Stat(valueFilePath); os.IsNotExist(err) {

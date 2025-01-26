@@ -3,6 +3,7 @@ package api
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"encoding/json"
 	"os"
 	"path/filepath"
 )
@@ -23,9 +24,13 @@ func (dc *DiskCache) getKeyPath(key string) (string, string) {
 }
 
 // getValuePath 获取值文件的存储路径
-func (dc *DiskCache) getValuePath(value []byte) (string, string, string) {
+func (dc *DiskCache) getValuePath(key string, value []byte) (string, string, string) {
+	data := map[string]string{
+		key: string(value),
+	}
+	jsonData, _ := json.Marshal(data)
 	hasher := md5.New()
-	hasher.Write(value)
+	hasher.Write(jsonData)
 	hashStr := hex.EncodeToString(hasher.Sum(nil))
 
 	dirName := hashStr[:2]

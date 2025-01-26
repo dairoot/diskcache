@@ -24,7 +24,8 @@ func (dc *DiskCache) getKeyInfo(key string) (*CacheItem, error) {
 	// 检查是否过期
 	if item.TTL > 0 {
 		if time.Now().Unix() > item.Time+item.TTL {
-			go dc.Del(key)
+			dc.delKeyFile(key)
+			dc.delValueFile(item.ValueHash)
 			return nil, fmt.Errorf("key expired")
 		}
 	}
@@ -32,23 +33,34 @@ func (dc *DiskCache) getKeyInfo(key string) (*CacheItem, error) {
 	return &item, nil
 }
 
+func (dc *DiskCache) getValueByKeyInfo(keyInfo *CacheItem) ([]byte, error) {
+	valueDirPath := filepath.Join(dc.BaseDir, "values", keyInfo.ValueHash[:2])
+	valueData, err := os.ReadFile(filepath.Join(valueDirPath, keyInfo.ValueHash[2:]))
+	if err != nil {
+		return nil, fmt.Errorf("value file not found")
+	}
+
+	return valueData, nil
+}
+
+// Get 获取键对应的值
+func (dc *DiskCache) getByNotLock(key string) ([]byte, error) {
+
+	// 获取键的元数据
+	keyInfo, err := dc.getKeyInfo(key)
+	if err != nil {
+		return nil, err
+	}
+
+	return dc.getValueByKeyInfo(keyInfo)
+}
+
 // Get 获取键对应的值
 func (dc *DiskCache) Get(key string) (string, error) {
 	dc.mutex.RLock()
 	defer dc.mutex.RUnlock()
 
-	// 获取键的元数据
-	item, err := dc.getKeyInfo(key)
-	if err != nil {
-		return "", err
-	}
+	valueData, err := dc.getByNotLock(key)
 
-	// 读取值文件
-	valueDirPath := filepath.Join(dc.BaseDir, "values", item.ValueHash[:2])
-	valueData, err := os.ReadFile(filepath.Join(valueDirPath, item.ValueHash[2:]))
-	if err != nil {
-		return "", fmt.Errorf("value file not found")
-	}
-
-	return string(valueData), nil
+	return string(valueData), err
 }
