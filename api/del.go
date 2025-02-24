@@ -1,34 +1,66 @@
 package api
 
 import (
-	"os"
-	"path/filepath"
+	"fmt"
+	"log"
+	"strconv"
+	"strings"
+	"time"
 )
 
-// delNotLock 删除 key 文件
-func (dc *DiskCache) delKeyFile(key string) {
-	dirPath, fileName := dc.getKeyPath(key)
-	os.Remove(filepath.Join(dirPath, fileName))
+func listToString(list []int64) string {
+	var newList []string
+	for _, id := range list {
+		newList = append(newList, strconv.FormatInt(id, 10))
+	}
+	return strings.Join(newList, ",")
+}
+
+func (dc *DiskCache) DelExpire() {
+	nowTime := time.Now().Unix()
+	rows, err := dc.Conn.QueryContext(dc.Ctx, "SELECT id FROM cache_key WHERE expire_time <= ? order by access_time asc limit 100", nowTime)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer rows.Close()
+	// 遍历结果
+	var keyIDS []int64
+	for rows.Next() {
+		var keyID int64
+		if err := rows.Scan(&keyID); err != nil {
+			log.Fatal(err)
+		}
+		keyIDS = append(keyIDS, keyID)
+	}
+
+	tx := dc.Tx()
+
+	defer tx.Commit()
+
+	sql1 := fmt.Sprintf("DELETE FROM cache_key WHERE id IN (%s);", listToString(keyIDS))
+	sql2 := fmt.Sprintf("DELETE FROM cache_value WHERE key_id IN (%s);", listToString(keyIDS))
+	tx.Exec(sql2)
+	tx.Exec(sql1)
 
 }
 
-// delValueFile 删除value文件
-func (dc *DiskCache) delValueFile(valueHash string) {
-	oldValueDirPath := filepath.Join(dc.BaseDir, "values", valueHash[:2])
-	oldValuePath := filepath.Join(oldValueDirPath, valueHash[2:])
-	_ = os.Remove(oldValuePath)
-}
+func (dc *DiskCache) Del(cacheKey string) error {
 
-// Del 删除键值对
-func (dc *DiskCache) Del(key string) error {
-	dc.mutex.Lock()
-	defer dc.mutex.Unlock()
-	item, err := dc.getKeyInfo(key)
+	tx := dc.Tx()
+
+	defer tx.Commit()
+	var keyID int64
+	err := dc.Conn.QueryRowContext(dc.Ctx, "SELECT id FROM cache_key where key = ?", cacheKey).Scan(&keyID)
+
 	if err != nil {
 		return err
 	}
 
-	dc.delKeyFile(key)
-	dc.delValueFile(item.ValueHash)
-	return nil
+	_, err2 := tx.Exec("DELETE FROM cache_key WHERE id = ?", keyID)
+	_, err1 := tx.Exec("DELETE FROM cache_value WHERE key_id = ?", keyID)
+
+	if err1 != nil {
+		return err1
+	}
+	return err2
 }

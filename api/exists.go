@@ -1,16 +1,6 @@
 package api
 
-import (
-	"os"
-	"path/filepath"
-)
-
-// Exists 检查键是否存在
-func (dc *DiskCache) Exists(key string) bool {
-	dc.mutex.RLock()
-	defer dc.mutex.RUnlock()
-
-	dirPath, fileName := dc.getKeyPath(key)
-	_, err := os.Stat(filepath.Join(dirPath, fileName))
+func (dc *DiskCache) Exists(cacheKey string) bool {
+	_, err := dc.GetKeyIDNotTx(cacheKey)
 	return err == nil
 }

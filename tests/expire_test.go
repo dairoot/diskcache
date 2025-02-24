@@ -1,7 +1,6 @@
 package cache_test
 
 import (
-	"encoding/json"
 	"testing"
 	"time"
 
@@ -10,21 +9,17 @@ import (
 
 func TestExpire(t *testing.T) {
 	var cacheKey = "TestExpire"
+	var valueStr = "value"
 
-	cache, _ := diskcache.NewDiskCache("../.cache")
-
-	data := map[string]interface{}{"name": "Tom"}
-	value, _ := json.Marshal(data)
-	valueStr := string(value)
+	cache := diskcache.NewDiskCache("../.cache/")
 
 	cache.Set(cacheKey, valueStr, 0)
 
-	cache.Expire(cacheKey, 1)
+	cache.Expire(cacheKey, 0.1)
 
-	time.Sleep(time.Second * 2)
+	time.Sleep(time.Millisecond * (0.2 * 1000))
 
-	_, err := cache.Get(cacheKey)
-	if err == nil {
+	if cache.Exists(cacheKey) == true {
 		t.Fatal("expire failed")
 	}
 

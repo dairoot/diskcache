@@ -1,23 +1,12 @@
-# DiskCache: Disk Backed Cache
-
-DiskCache is a disk and file-backed caching library, used in the same way as Redis.
-
-### Installation
-
-```sh
-go get github.com/dairoot/diskcache
-```
-
-### Usage
-
-```go
-package main
+package cache_test
 
 import (
 	"github.com/dairoot/diskcache"
+
+	"testing"
 )
 
-func main() {
+func TestDemo(t *testing.T) {
 	cacheKey := "cache_key"
 	valueStr := "value"
 	cache := diskcache.NewDiskCache("../.cache/")
@@ -54,6 +43,4 @@ func main() {
 	// Increment the integer value of a key by one
 	cache.Incr(cacheKey)
 
-
 }
-```

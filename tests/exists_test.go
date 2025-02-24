@@ -10,7 +10,7 @@ import (
 func TestExists(t *testing.T) {
 	var cacheKey = "TestExists"
 
-	cache, _ := diskcache.NewDiskCache("../.cache")
+	cache := diskcache.NewDiskCache("../.cache/")
 
 	data := map[string]interface{}{"name": "Tom"}
 	value, _ := json.Marshal(data)

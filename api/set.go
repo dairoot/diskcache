@@ -1,39 +1,35 @@
 package api
 
-import (
-	"encoding/json"
-	"os"
-	"path/filepath"
-	"time"
-)
+func (dc *DiskCache) Set(cacheKey string, cacheValue string, ttl float64) error {
 
-// Set 设置键值对
-func (dc *DiskCache) Set(key string, value string, ttl int64) error {
+	tx := dc.Tx()
 
-	dc.mutex.Lock()
-	defer dc.mutex.Unlock()
-	valueByte := []byte(value)
-	valueDirPath, valueFileName, valueHash := dc.getValuePath(key, valueByte)
-	valueFilePath := filepath.Join(valueDirPath, valueFileName)
+	defer tx.Commit()
 
-	if _, err := os.Stat(valueFilePath); os.IsNotExist(err) {
-		if err := os.WriteFile(valueFilePath, valueByte, 0644); err != nil {
+	keyID := GetKeyIDByCU(tx, cacheKey)
+	UpdateKeyIDTTL(tx, keyID, ttl)
+
+	// 插入并更新内容
+	var vauleID int
+
+	err := tx.QueryRow("SELECT id FROM cache_value where key_id = ?", keyID).Scan(&vauleID)
+	if err == nil {
+		_, err := tx.Exec("UPDATE cache_value SET value = ?  WHERE id = ?",
+			cacheValue, vauleID)
+		if err != nil {
+			tx.Rollback()
+			return err
+
+		}
+
+	} else {
+		_, err := tx.Exec("INSERT INTO cache_value(key_id,value) VALUES(?,?)",
+			keyID, cacheValue)
+		if err != nil {
+			tx.Rollback()
 			return err
 		}
 	}
 
-	item := CacheItem{
-		Key:       key,
-		Time:      time.Now().Unix(),
-		TTL:       ttl,
-		ValueHash: valueHash,
-	}
-
-	data, err := json.Marshal(item)
-	if err != nil {
-		return err
-	}
-
-	dirPath, fileName := dc.getKeyPath(key)
-	return os.WriteFile(filepath.Join(dirPath, fileName), data, 0644)
+	return nil
 }

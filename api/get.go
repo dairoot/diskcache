@@ -1,66 +1,51 @@
 package api
 
-import (
-	"encoding/json"
-	"fmt"
-	"os"
-	"path/filepath"
-	"time"
-)
+import "time"
 
-// getKeyInfo 获取键的元数据信息
-func (dc *DiskCache) getKeyInfo(key string) (*CacheItem, error) {
-	dirPath, fileName := dc.getKeyPath(key)
-	data, err := os.ReadFile(filepath.Join(dirPath, fileName))
+func (dc *DiskCache) GetKeyIDNotTx(cacheKey string) (int64, error) {
+	var keyID int64
+	nowTime := time.Now().Unix()
+	err := dc.Conn.QueryRowContext(dc.Ctx, "SELECT id FROM cache_key where key = ? AND (expire_time IS NULL OR expire_time > ?)",
+		cacheKey, nowTime).Scan(&keyID)
+
 	if err != nil {
-		return nil, fmt.Errorf("key not found")
+		return 0, err
 	}
-
-	var item CacheItem
-	if err := json.Unmarshal(data, &item); err != nil {
-		return nil, err
-	}
-
-	// 检查是否过期
-	if item.TTL > 0 {
-		if time.Now().Unix() > item.Time+item.TTL {
-			dc.delKeyFile(key)
-			dc.delValueFile(item.ValueHash)
-			return nil, fmt.Errorf("key expired")
-		}
-	}
-
-	return &item, nil
+	return keyID, nil
 }
 
-func (dc *DiskCache) getValueByKeyInfo(keyInfo *CacheItem) ([]byte, error) {
-	valueDirPath := filepath.Join(dc.BaseDir, "values", keyInfo.ValueHash[:2])
-	valueData, err := os.ReadFile(filepath.Join(valueDirPath, keyInfo.ValueHash[2:]))
+func (dc *DiskCache) Get(cacheKey string) (string, error) {
+
+	keyID, err := dc.GetKeyIDNotTx(cacheKey)
+
 	if err != nil {
-		return nil, fmt.Errorf("value file not found")
+		return "", err
 	}
 
-	return valueData, nil
-}
+	var value string
+	err = dc.Conn.QueryRowContext(dc.Ctx, "SELECT value FROM cache_value where key_id = ?", keyID).Scan(&value)
 
-// Get 获取键对应的值
-func (dc *DiskCache) getByNotLock(key string) ([]byte, error) {
-
-	// 获取键的元数据
-	keyInfo, err := dc.getKeyInfo(key)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-
-	return dc.getValueByKeyInfo(keyInfo)
+	dc.DelExpire() // 删除过期key
+	return value, nil
 }
 
-// Get 获取键对应的值
-func (dc *DiskCache) Get(key string) (string, error) {
-	dc.mutex.RLock()
-	defer dc.mutex.RUnlock()
+// func (dc *DiskCache) GetV1(cacheKey string) (string, error) {
+// 	tx := dc.Tx()
 
-	valueData, err := dc.getByNotLock(key)
+// 	defer tx.Commit()
+// 	keyID, err := GetKeyID(tx, cacheKey)
 
-	return string(valueData), err
-}
+// 	if err != nil {
+// 		return "", err
+// 	}
+
+// 	value, err := GetValue(tx, keyID)
+
+// 	if err != nil {
+// 		return "", err
+// 	}
+// 	return value, nil
+// }

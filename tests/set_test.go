@@ -8,7 +8,7 @@ import (
 )
 
 func TestSet(t *testing.T) {
-	cache, _ := diskcache.NewDiskCache("../.cache")
+	cache := diskcache.NewDiskCache("../.cache/")
 
 	data := map[string]interface{}{"name": "Tom"}
 	value, _ := json.Marshal(data)

@@ -1,140 +1,109 @@
 package api
 
 import (
-	"encoding/json"
-	"os"
-	"path/filepath"
-	"time"
+	"fmt"
+	"log"
 )
 
-// LPush 将一个值插入到列表头部
-func (dc *DiskCache) LPush(key string, value string) error {
-	dc.mutex.Lock()
-	defer dc.mutex.Unlock()
+func (dc *DiskCache) LPush(cacheKey string, cacheValue string) error {
 
-	valueList := []string{}
+	tx := dc.Tx()
 
-	keyInfo, err := dc.getKeyInfo(key)
-	if err == nil {
-		valueData, err := dc.getValueByKeyInfo(keyInfo)
-		if err == nil {
-			json.Unmarshal(valueData, &valueList)
-		}
-		// 删除旧的value文件
-		dc.delValueFile(keyInfo.ValueHash)
+	defer tx.Commit()
 
-	}
-	valueList = append([]string{value}, valueList...)
+	keyID := GetKeyIDByCU(tx, cacheKey)
 
-	// 序列化整个列表
-	valueListStr, err := json.Marshal(valueList)
+	// 插入内容
+	_, err := tx.Exec("INSERT INTO cache_value(key_id, value) VALUES(?,?)",
+		keyID, cacheValue)
+
 	if err != nil {
+		tx.Rollback()
 		return err
 	}
 
-	// 保存列表数据到value文件
-	valueDirPath, valueFileName, valueHash := dc.getValuePath(key, valueListStr)
-	valueFilePath := filepath.Join(valueDirPath, valueFileName)
-
-	if err := os.WriteFile(valueFilePath, valueListStr, 0644); err != nil {
-		return err
-	}
-
-	// 更新key文件
-	item := CacheItem{
-		Key:       key,
-		Time:      time.Now().Unix(),
-		TTL:       0,
-		ValueHash: valueHash,
-	}
-
-	data, err := json.Marshal(item)
-	if err != nil {
-		return err
-	}
-
-	dirPath, fileName := dc.getKeyPath(key)
-	return os.WriteFile(filepath.Join(dirPath, fileName), data, 0644)
+	return nil
 }
 
-// LPop 移除并返回列表的第一个元素
-func (dc *DiskCache) LPop(key string) (string, error) {
-	return dc.listPop(key, "left")
+func (dc *DiskCache) LPop(cacheKey string) (string, error) {
+	return dc.pop(cacheKey, "left")
+}
+func (dc *DiskCache) RPop(cacheKey string) (string, error) {
+	return dc.pop(cacheKey, "right")
 }
 
-// RPop 移除并返回列表的最后一个元素
-func (dc *DiskCache) RPop(key string) (string, error) {
-	return dc.listPop(key, "right")
-}
+func (dc *DiskCache) pop(cacheKey string, turnTo string) (string, error) {
+	orderBy := "id asc"
 
-func (dc *DiskCache) listPop(key string, turnTo string) (string, error) {
-	dc.mutex.Lock()
-	defer dc.mutex.Unlock()
-	valueList := []string{}
-
-	keyInfo, err := dc.getKeyInfo(key)
-	if err != nil {
-		return "", err
-	}
-
-	valueData, err := dc.getValueByKeyInfo(keyInfo)
-	if err != nil {
-		return "", err
-	}
-
-	if err := json.Unmarshal(valueData, &valueList); err != nil {
-		return "", err
-	}
-
-	var fValue string
-	var newValueList []string
 	if turnTo == "left" {
-		// 获取并移除第一个元素
-		fValue = valueList[0]
-		newValueList = valueList[1:]
-	} else {
-		// 获取并移除最后一个元素
-		fValue = valueList[len(valueList)-1]
-		newValueList = valueList[:len(valueList)-1]
+		orderBy = "id desc"
 	}
 
-	if len(newValueList) == 0 {
-		// 如果列表为空，删除键值对
-		dc.delKeyFile(key)
-		dc.delValueFile(keyInfo.ValueHash)
-		return string(fValue), nil
-	}
+	keyID, err := dc.GetKeyIDNotTx(cacheKey)
 
-	// 更新列表
-	updatedData, err := json.Marshal(newValueList)
 	if err != nil {
 		return "", err
 	}
 
-	// 计算新的value hash并保存
-	valueDirPath, valueFileName, valueHash := dc.getValuePath(key, updatedData)
-	valueFilePath := filepath.Join(valueDirPath, valueFileName)
+	tx := dc.Tx()
+	defer tx.Commit()
 
-	if err := os.WriteFile(valueFilePath, updatedData, 0644); err != nil {
+	var value string
+	var valueID int64
+	query := fmt.Sprintf("SELECT id, value FROM cache_value WHERE key_id = ? ORDER BY %s", orderBy)
+	err = tx.QueryRow(query, keyID).Scan(&valueID, &value)
+
+	if err != nil {
 		return "", err
 	}
-
-	// 删除旧的value文件
-	dc.delValueFile(keyInfo.ValueHash)
-
-	// 更新key文件
-	keyInfo.ValueHash = valueHash
-	keyInfo.Time = time.Now().Unix()
-
-	keyData, err := json.Marshal(keyInfo)
+	_, err = tx.Exec("DELETE FROM cache_value WHERE id = ?", valueID)
 	if err != nil {
 		return "", err
 	}
 
-	dirPath, fileName := dc.getKeyPath(key)
-	if err := os.WriteFile(filepath.Join(dirPath, fileName), keyData, 0644); err != nil {
-		return "", err
+	return value, nil
+
+}
+
+func (dc *DiskCache) RRange(cacheKey string, start int64, stop int64) []string {
+	return dc.listRange(cacheKey, start, stop, "right")
+}
+func (dc *DiskCache) LRange(cacheKey string, start int64, stop int64) []string {
+	return dc.listRange(cacheKey, start, stop, "left")
+}
+
+func (dc *DiskCache) listRange(cacheKey string, start int64, stop int64, turnTo string) []string {
+	orderBy := "id asc"
+
+	if turnTo == "left" {
+		orderBy = "id desc"
+	}
+	keyID, err := dc.GetKeyIDNotTx(cacheKey)
+
+	if err != nil {
+		return []string{}
 	}
 
-	return string(fValue), nil
+	tx := dc.Tx()
+	defer tx.Commit()
+	query := fmt.Sprintf("SELECT value FROM cache_value WHERE key_id = ? ORDER BY %s limit ?, ?", orderBy)
+	rows, err := tx.Query(query, keyID, start, stop)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer rows.Close()
+
+	// 遍历结果
+	var values []string
+	for rows.Next() {
+		var value string
+		if err := rows.Scan(&value); err != nil {
+			log.Fatal(err)
+		}
+		values = append(values, value)
+
+	}
+
+	return values
 }

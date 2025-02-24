@@ -1,0 +1,74 @@
+package api
+
+import (
+	"database/sql"
+	"time"
+)
+
+func GetValue(tx *sql.Tx, keyID int64) (string, error) {
+	var value string
+	err := tx.QueryRow("SELECT value FROM cache_value where key_id = ?", keyID).Scan(&value)
+	return value, err
+}
+
+func UpdateKeyIDTTL(tx *sql.Tx, keyID int64, ttl float64) error {
+
+	var expireTime *int64 = nil
+	if ttl != 0 {
+		expire := time.Now().Add(time.Duration(ttl*1000) * time.Millisecond).Unix()
+		expireTime = &expire
+	}
+
+	_, err := tx.Exec("UPDATE cache_key SET expire_time=? WHERE id = ?", expireTime, keyID)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	return nil
+}
+
+func UpdateKeyID(tx *sql.Tx, keyID int64) error {
+	accessTime := time.Now().Unix()
+	_, err := tx.Exec("UPDATE cache_key SET access_time = ?, access_count=access_count+1  WHERE id = ?", accessTime, keyID)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	return nil
+}
+
+func InsertKeyID(tx *sql.Tx, cacheKey string) int64 {
+
+	accessTime := time.Now().Unix()
+	createTime := time.Now().Unix()
+
+	result, err := tx.Exec("INSERT INTO cache_key(key,expire_time,access_time,create_time) VALUES(?,?,?,?)",
+		cacheKey, nil, accessTime, createTime)
+	if err != nil {
+		tx.Rollback()
+	}
+	keyID, _ := result.LastInsertId()
+	return keyID
+
+}
+
+func getKeyID(tx *sql.Tx, cacheKey string) (int64, error) {
+	var keyID int64
+	err := tx.QueryRow("SELECT id FROM cache_key where key = ?", cacheKey).Scan(&keyID)
+	return keyID, err
+}
+
+func GetKeyIDByCU(tx *sql.Tx, cacheKey string) int64 {
+	// 获取 keyID， 没有则创建，有则更新
+	var keyID int64
+	keyID, err := getKeyID(tx, cacheKey)
+
+	if err == nil {
+
+		UpdateKeyID(tx, keyID)
+
+	} else {
+		keyID = InsertKeyID(tx, cacheKey)
+	}
+	return keyID
+}
