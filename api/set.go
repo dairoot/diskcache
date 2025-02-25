@@ -1,12 +1,11 @@
 package api
 
-func (dc *DiskCache) Set(cacheKey string, cacheValue string, ttl float64) error {
-
+func (dc *DiskCache) SetNx(cacheKey string, cacheValue string, ttl float64) (int16, error) {
 	tx := dc.Tx()
 
 	defer tx.Commit()
 
-	keyID := GetKeyIDByCU(tx, cacheKey)
+	keyID, isInsert := GetKeyIDByCU(tx, cacheKey)
 	UpdateKeyIDTTL(tx, keyID, ttl)
 
 	// 插入并更新内容
@@ -18,18 +17,22 @@ func (dc *DiskCache) Set(cacheKey string, cacheValue string, ttl float64) error 
 			cacheValue, vauleID)
 		if err != nil {
 			tx.Rollback()
-			return err
-
+			return isInsert, err
 		}
 
 	} else {
-		_, err := tx.Exec("INSERT INTO cache_value(key_id,value) VALUES(?,?)",
-			keyID, cacheValue)
+		_, err := tx.Exec("INSERT INTO cache_value(key_id,value) VALUES(?,?)", keyID, cacheValue)
 		if err != nil {
 			tx.Rollback()
-			return err
+			return isInsert, err
 		}
 	}
 
-	return nil
+	return isInsert, nil
+
+}
+
+func (dc *DiskCache) Set(cacheKey string, cacheValue string, ttl float64) error {
+	_, err := dc.SetNx(cacheKey, cacheValue, ttl)
+	return err
 }

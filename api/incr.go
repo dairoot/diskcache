@@ -10,7 +10,7 @@ func (dc *DiskCache) Incr(cacheKey string) int64 {
 
 	defer tx.Commit()
 
-	keyID := GetKeyIDByCU(tx, cacheKey)
+	keyID, _ := GetKeyIDByCU(tx, cacheKey)
 
 	// 插入并更新内容
 	var vauleID int

@@ -11,7 +11,7 @@ func (dc *DiskCache) LPush(cacheKey string, cacheValue string) error {
 
 	defer tx.Commit()
 
-	keyID := GetKeyIDByCU(tx, cacheKey)
+	keyID, _ := GetKeyIDByCU(tx, cacheKey)
 
 	// 插入内容
 	_, err := tx.Exec("INSERT INTO cache_value(key_id, value) VALUES(?,?)",

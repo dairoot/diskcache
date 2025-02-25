@@ -1,7 +1,6 @@
 package cache_test
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/dairoot/diskcache"
@@ -9,10 +8,7 @@ import (
 
 func TestSet(t *testing.T) {
 	cache := diskcache.NewDiskCache("../.cache/")
-
-	data := map[string]interface{}{"name": "Tom"}
-	value, _ := json.Marshal(data)
-	valueStr := string(value)
+	var valueStr = "value"
 
 	err := cache.Set("TestSet1", valueStr, 1)
 	if err != nil {

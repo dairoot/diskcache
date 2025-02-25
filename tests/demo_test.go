@@ -14,6 +14,9 @@ func TestDemo(t *testing.T) {
 	// Add another item that never expires.
 	cache.Set(cacheKey, valueStr, 0)
 
+	// Set the item in the cache if it doesn't already exist.
+	cache.SetNx(cacheKey, valueStr, 0)
+
 	// Get the item from the cache.
 	cache.Get(cacheKey)
 
