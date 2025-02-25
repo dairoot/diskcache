@@ -20,10 +20,13 @@ import (
 func main() {
 	cacheKey := "cache_key"
 	valueStr := "value"
-	cache := diskcache.NewDiskCache("../.cache/")
+	cache := diskcache.NewDiskCache(".cache/")
 
 	// Add another item that never expires.
 	cache.Set(cacheKey, valueStr, 0)
+
+	// Set the item in the cache if it doesn't already exist.
+	cache.SetNx(cacheKey, valueStr, 0)
 
 	// Get the item from the cache.
 	cache.Get(cacheKey)
@@ -42,18 +45,20 @@ func main() {
 	cache.LPush(cacheKey, "xx2")
 	cache.LPush(cacheKey, "xx3")
 
+	// Returns the length of the list stored at key
+	cache.LLen(cacheKey)
+
 	// Removes and returns the first element of the list
 	cache.LPop(cacheKey)
 
 	// Removes and returns the last element of the list
 	cache.RPop(cacheKey)
 
-	// Returns the length of the list stored at key
+	// Returns elements within the specified interval in the list
 	cache.LRange(cacheKey, 0, 3)
 
 	// Increment the integer value of a key by one
 	cache.Incr(cacheKey)
-
 
 }
 ```

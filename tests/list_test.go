@@ -28,6 +28,10 @@ func TestList(t *testing.T) {
 		}
 	}
 
+	if cache.LLen(cacheKey) != int64(len(vaulesList)) {
+		t.Fatal("LLen API failed")
+	}
+
 	cache_list := cache.LRange(cacheKey, 0, 3)
 	if strings.Join(cache_list, ",") != strings.Join(reverse(vaulesList)[0:3], ",") {
 		t.Fatal("LRange API failed")

@@ -26,13 +26,13 @@ func (dc *DiskCache) LPush(cacheKey string, cacheValue string) error {
 }
 
 func (dc *DiskCache) LPop(cacheKey string) (string, error) {
-	return dc.pop(cacheKey, "left")
+	return dc._pop(cacheKey, "left")
 }
 func (dc *DiskCache) RPop(cacheKey string) (string, error) {
-	return dc.pop(cacheKey, "right")
+	return dc._pop(cacheKey, "right")
 }
 
-func (dc *DiskCache) pop(cacheKey string, turnTo string) (string, error) {
+func (dc *DiskCache) _pop(cacheKey string, turnTo string) (string, error) {
 	orderBy := "id asc"
 
 	if turnTo == "left" {
@@ -66,13 +66,13 @@ func (dc *DiskCache) pop(cacheKey string, turnTo string) (string, error) {
 }
 
 func (dc *DiskCache) RRange(cacheKey string, start int64, stop int64) []string {
-	return dc.listRange(cacheKey, start, stop, "right")
+	return dc._range(cacheKey, start, stop, "right")
 }
 func (dc *DiskCache) LRange(cacheKey string, start int64, stop int64) []string {
-	return dc.listRange(cacheKey, start, stop, "left")
+	return dc._range(cacheKey, start, stop, "left")
 }
 
-func (dc *DiskCache) listRange(cacheKey string, start int64, stop int64, turnTo string) []string {
+func (dc *DiskCache) _range(cacheKey string, start int64, stop int64, turnTo string) []string {
 	orderBy := "id asc"
 
 	if turnTo == "left" {
@@ -106,4 +106,16 @@ func (dc *DiskCache) listRange(cacheKey string, start int64, stop int64, turnTo 
 	}
 
 	return values
+}
+
+func (dc *DiskCache) LLen(cacheKey string) int64 {
+	keyID, err := dc.GetKeyIDNotTx(cacheKey)
+
+	if err != nil {
+		return 0
+	}
+
+	var c int64
+	dc.Conn.QueryRowContext(dc.Ctx, "SELECT count(*) FROM cache_value WHERE key_id = ?", keyID).Scan(&c)
+	return c
 }

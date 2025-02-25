@@ -34,13 +34,16 @@ func TestDemo(t *testing.T) {
 	cache.LPush(cacheKey, "xx2")
 	cache.LPush(cacheKey, "xx3")
 
+	// Returns the length of the list stored at key
+	cache.LLen(cacheKey)
+
 	// Removes and returns the first element of the list
 	cache.LPop(cacheKey)
 
 	// Removes and returns the last element of the list
 	cache.RPop(cacheKey)
 
-	// Returns the length of the list stored at key
+	// Returns elements within the specified interval in the list
 	cache.LRange(cacheKey, 0, 3)
 
 	// Increment the integer value of a key by one
