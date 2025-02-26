@@ -52,9 +52,7 @@ func (dc *DiskCache) InitDb() {
 			value BLOB  NOT NULL
 		);`)
 
-	dc.Conn.ExecContext(dc.Ctx, `
-		CREATE INDEX IF NOT EXISTS idx_cache_key_key ON cache_key(key);
-	`)
+	dc.Conn.ExecContext(dc.Ctx, `CREATE UNIQUE INDEX IF NOT EXISTS idx_cache_key_key ON cache_key(key)`)
 
 	dc.Conn.ExecContext(dc.Ctx, `
 		CREATE INDEX IF NOT EXISTS idx_cache_key_expire_time ON cache_key(expire_time) WHERE expire_time IS NOT NULL
@@ -79,7 +77,7 @@ func (dc *DiskCache) Tx() *sql.Tx {
 		if err == nil {
 			return tx
 		}
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 	}
 
 }
