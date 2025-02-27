@@ -46,6 +46,12 @@ func TestDemo(t *testing.T) {
 	// Returns elements within the specified interval in the list
 	cache.LRange(cacheKey, 0, 3)
 
+	// Add the specified members to the set stored at key
+	cache.SAdd(cacheKey, "xx1")
+
+	// removes and returns one random elements from the set value stored at key
+	cache.SPop(cacheKey)
+
 	// Increment the integer value of a key by one
 	cache.Incr(cacheKey)
 

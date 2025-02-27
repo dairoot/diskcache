@@ -40,7 +40,7 @@ func main() {
 	// Set an item that expires in 60 seconds.
 	cache.Expire(cacheKey, 60)
 
-	// add a list item
+	// Adds a list item
 	cache.LPush(cacheKey, "xx1")
 	cache.LPush(cacheKey, "xx2")
 	cache.LPush(cacheKey, "xx3")
@@ -56,6 +56,12 @@ func main() {
 
 	// Returns elements within the specified interval in the list
 	cache.LRange(cacheKey, 0, 3)
+
+	// Adds the specified members to the set stored at key
+	cache.SAdd(cacheKey, "xx1")
+
+	// Removes and returns one random elements from the set value stored at key
+	cache.SPop(cacheKey)
 
 	// Increment the integer value of a key by one
 	cache.Incr(cacheKey)

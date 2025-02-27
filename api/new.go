@@ -49,6 +49,7 @@ func (dc *DiskCache) InitDb() {
 		CREATE TABLE IF NOT EXISTS cache_value (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			key_id INTEGER  NOT NULL,
+			value_md5 TEXT,
 			value BLOB  NOT NULL
 		);`)
 
@@ -56,6 +57,10 @@ func (dc *DiskCache) InitDb() {
 
 	dc.Conn.ExecContext(dc.Ctx, `
 		CREATE INDEX IF NOT EXISTS idx_cache_key_expire_time ON cache_key(expire_time) WHERE expire_time IS NOT NULL
+	`)
+
+	dc.Conn.ExecContext(dc.Ctx, `
+		CREATE INDEX IF NOT EXISTS idx_cache_value_value_md5 ON cache_value(value_md5) WHERE value_md5 IS NOT NULL
 	`)
 
 	dc.Conn.ExecContext(dc.Ctx, `

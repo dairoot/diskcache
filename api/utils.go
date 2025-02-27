@@ -1,9 +1,20 @@
 package api
 
 import (
+	"crypto/md5"
 	"database/sql"
+	"encoding/hex"
 	"time"
 )
+
+func GetMd5String(str string) string {
+	hash := md5.New()
+	hash.Write([]byte(str))
+	md5Hash := hash.Sum(nil)
+
+	md5String := hex.EncodeToString(md5Hash)
+	return md5String
+}
 
 func GetValue(tx *sql.Tx, keyID int64) (string, error) {
 	var value string
