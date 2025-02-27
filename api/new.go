@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -18,18 +19,19 @@ func CreateDiskCacheConn(baseDir string) *DiskCache {
 	if err != nil {
 		log.Fatal(err)
 	}
-	db, err := sql.Open("sqlite3", baseDir+"/cache.db")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer db.Close()
 
+	db, err := sql.Open("sqlite3", baseDir+"/cache.db")
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	ctx := context.Background()
-	conn, _ := db.Conn(ctx)
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer db.Close()
 
 	return &DiskCache{
 		Ctx:  ctx,
@@ -43,8 +45,8 @@ func (dc *DiskCache) InitDb() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	_, err = dc.Conn.ExecContext(dc.Ctx, `
+	fmt.Println("dc.Ctx", dc.Ctx)
+	dc.Conn.ExecContext(dc.Ctx, `
 		CREATE TABLE IF NOT EXISTS cache_key (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			key BLOB  NOT NULL,
@@ -54,11 +56,7 @@ func (dc *DiskCache) InitDb() {
 			create_time REAL NOT NULL
 		);`)
 
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	_, err = dc.Conn.ExecContext(dc.Ctx, `
+	dc.Conn.ExecContext(dc.Ctx, `
 		CREATE TABLE IF NOT EXISTS cache_value (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			key_id INTEGER  NOT NULL,
@@ -66,35 +64,19 @@ func (dc *DiskCache) InitDb() {
 			value BLOB  NOT NULL
 		);`)
 
-	if err != nil {
-		log.Fatal(err)
-	}
+	dc.Conn.ExecContext(dc.Ctx, `CREATE UNIQUE INDEX IF NOT EXISTS idx_cache_key_key ON cache_key(key);`)
 
-	_, err = dc.Conn.ExecContext(dc.Ctx, `CREATE UNIQUE INDEX IF NOT EXISTS idx_cache_key_key ON cache_key(key);`)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	_, err = dc.Conn.ExecContext(dc.Ctx, `
+	dc.Conn.ExecContext(dc.Ctx, `
 		CREATE INDEX IF NOT EXISTS idx_cache_key_expire_time ON cache_key(expire_time) WHERE expire_time IS NOT NULL;
 	`)
-	if err != nil {
-		log.Fatal(err)
-	}
 
-	_, err = dc.Conn.ExecContext(dc.Ctx, `
+	dc.Conn.ExecContext(dc.Ctx, `
 		CREATE INDEX IF NOT EXISTS idx_cache_value_value_md5 ON cache_value(value_md5) WHERE value_md5 IS NOT NULL;
 	`)
-	if err != nil {
-		log.Fatal(err)
-	}
 
-	_, err = dc.Conn.ExecContext(dc.Ctx, `
+	dc.Conn.ExecContext(dc.Ctx, `
 		CREATE INDEX IF NOT EXISTS idx_cache_value_key_id ON cache_value(key_id);
 	`)
-	if err != nil {
-		log.Fatal(err)
-	}
 
 }
 func (dc *DiskCache) Tx() *sql.Tx {
