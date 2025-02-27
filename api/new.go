@@ -3,13 +3,12 @@ package api
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"log"
 	"os"
 	"os/exec"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 func CreateDiskCacheConn(baseDir string) *DiskCache {
@@ -20,7 +19,7 @@ func CreateDiskCacheConn(baseDir string) *DiskCache {
 		log.Fatal(err)
 	}
 
-	db, err := sql.Open("sqlite3", baseDir+"/cache.db")
+	db, err := sql.Open("sqlite", baseDir+"/cache.db")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -45,7 +44,7 @@ func (dc *DiskCache) InitDb() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("dc.Ctx", dc.Ctx)
+
 	dc.Conn.ExecContext(dc.Ctx, `
 		CREATE TABLE IF NOT EXISTS cache_key (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
