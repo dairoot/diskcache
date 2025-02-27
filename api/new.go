@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"log"
 	"os"
+	"os/exec"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -12,6 +13,11 @@ import (
 
 func CreateDiskCacheConn(baseDir string) *DiskCache {
 	os.MkdirAll(baseDir, os.ModePerm)
+	cmd := exec.Command("sqlite3", "--version")
+	err := cmd.Run()
+	if err != nil {
+		log.Fatal(err)
+	}
 	db, err := sql.Open("sqlite3", baseDir+"/cache.db")
 	if err != nil {
 		log.Fatal(err)
