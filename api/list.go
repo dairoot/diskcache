@@ -65,14 +65,14 @@ func (dc *DiskCache) _pop(cacheKey string, turnTo string) (string, error) {
 
 }
 
-func (dc *DiskCache) RRange(cacheKey string, start int64, stop int64) []string {
-	return dc._range(cacheKey, start, stop, "right")
+func (dc *DiskCache) RRange(cacheKey string, offset int64, limit int64) []string {
+	return dc._range(cacheKey, offset, limit, "right")
 }
-func (dc *DiskCache) LRange(cacheKey string, start int64, stop int64) []string {
-	return dc._range(cacheKey, start, stop, "left")
+func (dc *DiskCache) LRange(cacheKey string, offset int64, limit int64) []string {
+	return dc._range(cacheKey, offset, limit, "left")
 }
 
-func (dc *DiskCache) _range(cacheKey string, start int64, stop int64, turnTo string) []string {
+func (dc *DiskCache) _range(cacheKey string, offset int64, limit int64, turnTo string) []string {
 	orderBy := "id asc"
 
 	if turnTo == "left" {
@@ -87,7 +87,7 @@ func (dc *DiskCache) _range(cacheKey string, start int64, stop int64, turnTo str
 	tx := dc.Tx()
 	defer tx.Commit()
 	query := fmt.Sprintf("SELECT value FROM cache_value WHERE key_id = ? ORDER BY %s limit ?, ?", orderBy)
-	rows, err := tx.Query(query, keyID, start, stop)
+	rows, err := tx.Query(query, keyID, offset, limit)
 
 	if err != nil {
 		log.Fatal(err)
