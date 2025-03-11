@@ -36,3 +36,7 @@ func (dc *DiskCache) SAdd(cacheKey string, cacheValue string) error {
 func (dc *DiskCache) SPop(cacheKey string) (string, error) {
 	return dc.LPop(cacheKey)
 }
+
+func (dc *DiskCache) SRem(cacheKey string, cacheValue string) error {
+	return dc.LRem(cacheKey, cacheValue)
+}

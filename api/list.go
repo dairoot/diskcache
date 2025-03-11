@@ -12,10 +12,11 @@ func (dc *DiskCache) LPush(cacheKey string, cacheValue string) error {
 	defer tx.Commit()
 
 	keyID, _ := GetKeyIDByCU(tx, cacheKey)
+	vauleMd5 := GetMd5String(cacheValue)
 
 	// 插入内容
-	_, err := tx.Exec("INSERT INTO cache_value(key_id, value) VALUES(?,?)",
-		keyID, cacheValue)
+	_, err := tx.Exec("INSERT INTO cache_value(key_id, value, value_md5) VALUES(?,?,?)",
+		keyID, cacheValue, vauleMd5)
 
 	if err != nil {
 		tx.Rollback()
@@ -118,4 +119,21 @@ func (dc *DiskCache) LLen(cacheKey string) int64 {
 	var c int64
 	dc.Conn.QueryRowContext(dc.Ctx, "SELECT count(*) FROM cache_value WHERE key_id = ?", keyID).Scan(&c)
 	return c
+}
+
+func (dc *DiskCache) LRem(cacheKey string, cacheValue string) error {
+	keyID, err := dc.GetKeyIDNotTx(cacheKey)
+	vauleMd5 := GetMd5String(cacheValue)
+
+	if err != nil {
+		return err
+	}
+
+	tx := dc.Tx()
+
+	defer tx.Commit()
+
+	tx.Exec("DELETE FROM cache_value WHERE key_id = ? and value_md5 = ?;", keyID, vauleMd5)
+	return nil
+
 }

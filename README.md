@@ -45,6 +45,9 @@ func main() {
 	cache.LPush(cacheKey, "xx2")
 	cache.LPush(cacheKey, "xx3")
 
+	// Removes the specified values from the list stored at key
+	cache.LRem(cacheKey, "xx2")
+
 	// Returns the length of the list stored at key
 	cache.LLen(cacheKey)
 
@@ -59,6 +62,11 @@ func main() {
 
 	// Adds the specified members to the set stored at key
 	cache.SAdd(cacheKey, "xx1")
+	cache.SAdd(cacheKey, "xx2")
+	cache.SAdd(cacheKey, "xx3")
+
+	// Removes the specified values from the list stored at key
+	cache.SRem(cacheKey, "xx2")
 
 	// Removes and returns one random elements from the set value stored at key
 	cache.SPop(cacheKey)

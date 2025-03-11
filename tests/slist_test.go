@@ -32,4 +32,6 @@ func TestSList(t *testing.T) {
 		t.Fatal("SPop API failed")
 	}
 
+	cache.SRem(cacheKey, "1")
+
 }

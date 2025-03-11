@@ -31,14 +31,15 @@ func TestList(t *testing.T) {
 	if cache.LLen(cacheKey) != int64(len(vaulesList)) {
 		t.Fatal("LLen API failed")
 	}
+	llen := cache.LLen(cacheKey)
 
-	cache_list := cache.LRange(cacheKey, 0, 3)
-	if strings.Join(cache_list, ",") != strings.Join(reverse(vaulesList)[0:3], ",") {
+	cache_list := cache.LRange(cacheKey, 0, llen)
+	if strings.Join(cache_list, ",") != strings.Join(reverse(vaulesList)[0:llen], ",") {
 		t.Fatal("LRange API failed")
 	}
 
-	cache_list = cache.RRange(cacheKey, 0, 3)
-	if strings.Join(cache_list, ",") != strings.Join(vaulesList[0:3], ",") {
+	cache_list = cache.RRange(cacheKey, 0, llen)
+	if strings.Join(cache_list, ",") != strings.Join(vaulesList[0:llen], ",") {
 		t.Fatal("RRange API failed")
 	}
 
@@ -50,6 +51,13 @@ func TestList(t *testing.T) {
 	cacheData, err = cache.RPop(cacheKey)
 	if cacheData != vaulesList[0] {
 		t.Fatal("RPop API failed: ", err)
+	}
+
+	cache_listv1 := cache.LRange(cacheKey, 0, llen)
+	cache.LRem(cacheKey, cache_listv1[0])
+	cache_listv2 := cache.LRange(cacheKey, 0, llen)
+	if strings.Join(cache_listv1[1:], ",") != strings.Join(cache_listv2, ",") {
+		t.Fatal("LRange API failed")
 	}
 
 	cache.Expire(cacheKey, 0.1)
