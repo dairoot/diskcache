@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"log"
+	"math/rand"
 	"os"
 	"os/exec"
 	"time"
@@ -87,12 +88,19 @@ func (dc *DiskCache) Tx() *sql.Tx {
 
 	// return tx
 
-	for {
-		tx, err := dc.Conn.BeginTx(dc.Ctx, nil)
-		if err == nil {
-			return tx
-		}
-		time.Sleep(10 * time.Millisecond)
+	tx, err := dc.Conn.BeginTx(dc.Ctx, nil)
+	if err == nil {
+		return tx
 	}
+
+	for i := 0; i < 1000; i++ {
+		tx, err = dc.Conn.BeginTx(dc.Ctx, nil)
+		if err == nil {
+			break
+		}
+		time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond)
+
+	}
+	return tx
 
 }

@@ -14,7 +14,7 @@ func TestStress(t *testing.T) {
 	cache := diskcache.NewDiskCache("../.cache/")
 	var wg sync.WaitGroup
 
-	for i := range 1000 {
+	for i := range 10000 {
 		var cacheKey = "TestStress" + strconv.Itoa(i)
 		wg.Add(1)
 		go func() {
