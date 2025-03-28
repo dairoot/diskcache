@@ -32,7 +32,7 @@ func (dc *DiskCache) Get(cacheKey string) (string, error) {
 		return "", err
 	}
 
-	if rand.Intn(10) < 3 {
+	if rand.Intn(10) <= 1 {
 		dc.DelExpire() // 删除过期key
 	}
 	return value, nil
