@@ -1,6 +1,9 @@
 package api
 
-import "time"
+import (
+	"math/rand"
+	"time"
+)
 
 func (dc *DiskCache) GetKeyIDNotTx(cacheKey string) (int64, error) {
 	var keyID int64
@@ -28,7 +31,10 @@ func (dc *DiskCache) Get(cacheKey string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	dc.DelExpire() // 删除过期key
+
+	if rand.Intn(10) < 3 {
+		dc.DelExpire() // 删除过期key
+	}
 	return value, nil
 }
 
