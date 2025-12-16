@@ -7,6 +7,6 @@ import (
 func NewDiskCache(baseDir string) *api.DiskCache {
 	cache := api.CreateDiskCacheConn(baseDir)
 	cache.InitDb()
-	cache.DelExpire()
+	_ = cache.DelExpire()
 	return cache
 }

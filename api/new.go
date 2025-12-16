@@ -16,6 +16,7 @@ func CreateDiskCacheConn(baseDir string) *DiskCache {
 	os.MkdirAll(baseDir, os.ModePerm)
 	cmd := exec.Command("sqlite3", "--version")
 	err := cmd.Run()
+
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -28,13 +29,13 @@ func CreateDiskCacheConn(baseDir string) *DiskCache {
 	ctx := context.Background()
 	conn, err := db.Conn(ctx)
 	if err != nil {
+		db.Close()
 		log.Fatal(err)
 	}
 
-	defer db.Close()
-
 	return &DiskCache{
 		Ctx:  ctx,
+		DB:   db,
 		Conn: conn,
 	}
 }
@@ -80,27 +81,18 @@ func (dc *DiskCache) InitDb() {
 
 }
 func (dc *DiskCache) Tx() *sql.Tx {
-
-	// tx, err := dc.Conn.BeginTx(dc.Ctx, nil)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	// return tx
-
 	tx, err := dc.Conn.BeginTx(dc.Ctx, nil)
 	if err == nil {
 		return tx
 	}
 
+	// 重试机制，处理数据库繁忙的情况
 	for i := 0; i < 1000; i++ {
 		tx, err = dc.Conn.BeginTx(dc.Ctx, nil)
 		if err == nil {
-			break
+			return tx
 		}
 		time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond)
-
 	}
 	return tx
-
 }

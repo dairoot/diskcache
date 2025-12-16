@@ -18,7 +18,6 @@ func (dc *DiskCache) GetKeyIDNotTx(cacheKey string) (int64, error) {
 }
 
 func (dc *DiskCache) Get(cacheKey string) (string, error) {
-
 	keyID, err := dc.GetKeyIDNotTx(cacheKey)
 
 	if err != nil {
@@ -32,26 +31,9 @@ func (dc *DiskCache) Get(cacheKey string) (string, error) {
 		return "", err
 	}
 
+	// 随机清理过期 key
 	if rand.Intn(10) <= 1 {
-		dc.DelExpire() // 删除过期key
+		_ = dc.DelExpire()
 	}
 	return value, nil
 }
-
-// func (dc *DiskCache) GetV1(cacheKey string) (string, error) {
-// 	tx := dc.Tx()
-
-// 	defer tx.Commit()
-// 	keyID, err := GetKeyID(tx, cacheKey)
-
-// 	if err != nil {
-// 		return "", err
-// 	}
-
-// 	value, err := GetValue(tx, keyID)
-
-// 	if err != nil {
-// 		return "", err
-// 	}
-// 	return value, nil
-// }

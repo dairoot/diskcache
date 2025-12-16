@@ -2,24 +2,26 @@ package api
 
 func (dc *DiskCache) SetNx(cacheKey string, cacheValue string, ttl float64) (int16, error) {
 	tx := dc.Tx()
-
-	defer tx.Commit()
+	if tx == nil {
+		return 0, nil
+	}
 
 	keyID, isInsert := GetKeyIDByCU(tx, cacheKey)
-	UpdateKeyIDTTL(tx, keyID, ttl)
+	if err := UpdateKeyIDTTL(tx, keyID, ttl); err != nil {
+		return isInsert, err
+	}
 
 	// 插入并更新内容
-	var vauleID int
+	var valueID int
 
-	err := tx.QueryRow("SELECT id FROM cache_value where key_id = ?", keyID).Scan(&vauleID)
+	err := tx.QueryRow("SELECT id FROM cache_value where key_id = ?", keyID).Scan(&valueID)
 	if err == nil {
-		_, err := tx.Exec("UPDATE cache_value SET value = ?  WHERE id = ?",
-			cacheValue, vauleID)
+		_, err := tx.Exec("UPDATE cache_value SET value = ? WHERE id = ?",
+			cacheValue, valueID)
 		if err != nil {
 			tx.Rollback()
 			return isInsert, err
 		}
-
 	} else {
 		_, err := tx.Exec("INSERT INTO cache_value(key_id,value) VALUES(?,?)", keyID, cacheValue)
 		if err != nil {
@@ -28,8 +30,8 @@ func (dc *DiskCache) SetNx(cacheKey string, cacheValue string, ttl float64) (int
 		}
 	}
 
+	tx.Commit()
 	return isInsert, nil
-
 }
 
 func (dc *DiskCache) Set(cacheKey string, cacheValue string, ttl float64) error {

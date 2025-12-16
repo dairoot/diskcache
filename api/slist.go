@@ -1,36 +1,35 @@
 package api
 
 func (dc *DiskCache) SAdd(cacheKey string, cacheValue string) error {
-
 	tx := dc.Tx()
-
-	defer tx.Commit()
+	if tx == nil {
+		return nil
+	}
 
 	keyID, _ := GetKeyIDByCU(tx, cacheKey)
-
-	vauleMd5 := GetMd5String(cacheValue)
+	valueMd5 := GetMd5String(cacheValue)
 
 	// 插入并更新内容
-	var vauleID int
+	var valueID int
 
-	err := tx.QueryRow("SELECT id FROM cache_value where key_id = ? and value_md5 = ?", keyID, vauleMd5).Scan(&vauleID)
+	err := tx.QueryRow("SELECT id FROM cache_value where key_id = ? and value_md5 = ?", keyID, valueMd5).Scan(&valueID)
 
 	if err == nil {
-		_, err := tx.Exec("UPDATE cache_value SET value = ? , value_md5 =? WHERE id = ?",
-			cacheValue, vauleMd5, vauleID)
+		_, err := tx.Exec("UPDATE cache_value SET value = ?, value_md5 = ? WHERE id = ?",
+			cacheValue, valueMd5, valueID)
 		if err != nil {
 			tx.Rollback()
 			return err
 		}
-
 	} else {
-		_, err := tx.Exec("INSERT INTO cache_value(key_id,value,value_md5) VALUES(?,?, ?)", keyID, cacheValue, vauleMd5)
+		_, err := tx.Exec("INSERT INTO cache_value(key_id,value,value_md5) VALUES(?,?,?)", keyID, cacheValue, valueMd5)
 		if err != nil {
 			tx.Rollback()
 			return err
 		}
 	}
-	return nil
+
+	return tx.Commit()
 }
 
 func (dc *DiskCache) SPop(cacheKey string) (string, error) {

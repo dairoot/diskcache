@@ -48,8 +48,7 @@ func UpdateKeyID(tx *sql.Tx, keyID int64) error {
 	return nil
 }
 
-func InsertKeyID(tx *sql.Tx, cacheKey string) int64 {
-
+func InsertKeyID(tx *sql.Tx, cacheKey string) (int64, error) {
 	accessTime := time.Now().Unix()
 	createTime := time.Now().Unix()
 
@@ -57,15 +56,15 @@ func InsertKeyID(tx *sql.Tx, cacheKey string) int64 {
 		cacheKey, nil, accessTime, createTime)
 	if err != nil {
 		tx.Rollback()
+		return 0, err
 	}
-	keyID, _ := result.LastInsertId()
-	return keyID
-
+	keyID, err := result.LastInsertId()
+	return keyID, err
 }
 
 func getKeyID(tx *sql.Tx, cacheKey string) (int64, bool) {
 	var keyID int64
-	var expireTime float64
+	var expireTime sql.NullFloat64
 	var isExists bool
 
 	err := tx.QueryRow("SELECT id, expire_time FROM cache_key where key = ?", cacheKey).Scan(&keyID, &expireTime)
@@ -73,11 +72,12 @@ func getKeyID(tx *sql.Tx, cacheKey string) (int64, bool) {
 	if err != nil {
 		// 不存在
 		isExists = false
-
-	} else if expireTime <= float64(nowTime) {
-		// 过期
+	} else if !expireTime.Valid {
+		// expire_time 为 NULL，表示永不过期
+		isExists = true
+	} else if expireTime.Float64 <= float64(nowTime) {
+		// 已过期
 		isExists = false
-
 	} else {
 		isExists = true
 	}
@@ -86,21 +86,22 @@ func getKeyID(tx *sql.Tx, cacheKey string) (int64, bool) {
 }
 
 func GetKeyIDByCU(tx *sql.Tx, cacheKey string) (int64, int16) {
-	// 获取 keyID， 没有则创建，有则更新
+	// 获取 keyID，没有则创建，有则更新
 	var keyID int64
 	keyID, isExists := getKeyID(tx, cacheKey)
 
 	if keyID != 0 {
 		UpdateKeyID(tx, keyID)
-
 	} else {
-		keyID = InsertKeyID(tx, cacheKey)
-
+		var err error
+		keyID, err = InsertKeyID(tx, cacheKey)
+		if err != nil {
+			return 0, 1
+		}
 	}
+
 	if isExists {
 		return keyID, 0
-	} else {
-		return keyID, 1
 	}
-
+	return keyID, 1
 }
