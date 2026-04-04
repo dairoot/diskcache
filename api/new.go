@@ -34,18 +34,25 @@ func CreateDiskCacheConn(baseDir string) *DiskCache {
 	}
 
 	return &DiskCache{
-		Ctx:  ctx,
-		DB:   db,
-		Conn: conn,
+		Ctx:    ctx,
+		DB:     db,
+		Conn:   conn,
+		stopCh: make(chan struct{}),
 	}
 }
 
 func (dc *DiskCache) InitDb() {
-	// 初始化表
 	_, err := dc.Conn.ExecContext(dc.Ctx, "PRAGMA journal_mode = WAL;")
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// 增量式自动回收已删除数据占用的磁盘空间
+	dc.Conn.ExecContext(dc.Ctx, "PRAGMA auto_vacuum = INCREMENTAL;")
+	// WAL 每积累 1000 页自动 checkpoint
+	dc.Conn.ExecContext(dc.Ctx, "PRAGMA wal_autocheckpoint = 1000;")
+	// WAL 文件最大 64MB，超出后自动截断
+	dc.Conn.ExecContext(dc.Ctx, "PRAGMA journal_size_limit = 67108864;")
 
 	dc.Conn.ExecContext(dc.Ctx, `
 		CREATE TABLE IF NOT EXISTS cache_key (
@@ -80,6 +87,29 @@ func (dc *DiskCache) InitDb() {
 	`)
 
 }
+// Vacuum 执行增量回收和 WAL checkpoint，释放已删除数据占用的磁盘空间
+func (dc *DiskCache) Vacuum() {
+	dc.Conn.ExecContext(dc.Ctx, "PRAGMA incremental_vacuum(500);")
+	dc.Conn.ExecContext(dc.Ctx, "PRAGMA wal_checkpoint(PASSIVE);")
+}
+
+// StartMaintenance 启动后台 goroutine，定期清理过期数据并回收磁盘空间
+func (dc *DiskCache) StartMaintenance(interval time.Duration) {
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-dc.stopCh:
+				return
+			case <-ticker.C:
+				dc.DelExpire()
+				dc.Vacuum()
+			}
+		}
+	}()
+}
+
 func (dc *DiskCache) Tx() *sql.Tx {
 	tx, err := dc.Conn.BeginTx(dc.Ctx, nil)
 	if err == nil {
