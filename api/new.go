@@ -3,25 +3,19 @@ package api
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
 	"math/rand"
 	"os"
-	"os/exec"
 	"time"
 
 	_ "modernc.org/sqlite"
 )
 
-func CreateDiskCacheConn(baseDir string) *DiskCache {
+func CreateDiskCacheConn(baseDir string, dbName string) *DiskCache {
 	os.MkdirAll(baseDir, os.ModePerm)
-	cmd := exec.Command("sqlite3", "--version")
-	err := cmd.Run()
 
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	db, err := sql.Open("sqlite", baseDir+"/cache.db")
+	db, err := sql.Open("sqlite", baseDir+"/"+dbName)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -38,6 +32,22 @@ func CreateDiskCacheConn(baseDir string) *DiskCache {
 		DB:     db,
 		Conn:   conn,
 		stopCh: make(chan struct{}),
+	}
+}
+
+// CreateShardedConn 创建分片 DiskCache，每个分片对应独立的 SQLite 文件
+func CreateShardedConn(baseDir string, numShards int) *ShardedDiskCache {
+	shards := make([]*DiskCache, numShards)
+	for i := 0; i < numShards; i++ {
+		dc := CreateDiskCacheConn(baseDir, fmt.Sprintf("cache_%d.db", i))
+		dc.InitDb()
+		_ = dc.DelExpire()
+		dc.StartMaintenance(5 * time.Minute)
+		shards[i] = dc
+	}
+	return &ShardedDiskCache{
+		shards:    shards,
+		numShards: uint32(numShards),
 	}
 }
 
@@ -87,6 +97,7 @@ func (dc *DiskCache) InitDb() {
 	`)
 
 }
+
 // Vacuum 执行增量回收和 WAL checkpoint，释放已删除数据占用的磁盘空间
 func (dc *DiskCache) Vacuum() {
 	dc.Conn.ExecContext(dc.Ctx, "PRAGMA incremental_vacuum(500);")
@@ -117,7 +128,7 @@ func (dc *DiskCache) Tx() *sql.Tx {
 	}
 
 	// 重试机制，处理数据库繁忙的情况
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 100; i++ {
 		tx, err = dc.Conn.BeginTx(dc.Ctx, nil)
 		if err == nil {
 			return tx

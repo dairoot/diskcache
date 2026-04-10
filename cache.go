@@ -1,15 +1,15 @@
 package diskcache
 
 import (
-	"time"
-
 	"github.com/dairoot/diskcache/api"
 )
 
-func NewDiskCache(baseDir string) *api.DiskCache {
-	cache := api.CreateDiskCacheConn(baseDir)
-	cache.InitDb()
-	_ = cache.DelExpire()
-	cache.StartMaintenance(5 * time.Minute)
-	return cache
+// NewDiskCache 创建默认 8 分片的 DiskCache
+func NewDiskCache(baseDir string) *api.ShardedDiskCache {
+	return api.CreateShardedConn(baseDir, 1)
+}
+
+// NewDiskCacheWithShards 创建自定义分片数的 DiskCache
+func NewDiskCacheWithShards(baseDir string, numShards int) *api.ShardedDiskCache {
+	return api.CreateShardedConn(baseDir, numShards)
 }

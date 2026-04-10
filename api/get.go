@@ -1,7 +1,6 @@
 package api
 
 import (
-	"math/rand"
 	"time"
 )
 
@@ -31,9 +30,5 @@ func (dc *DiskCache) Get(cacheKey string) (string, error) {
 		return "", err
 	}
 
-	// 随机清理过期 key
-	if rand.Intn(10) <= 1 {
-		_ = dc.DelExpire()
-	}
 	return value, nil
 }
